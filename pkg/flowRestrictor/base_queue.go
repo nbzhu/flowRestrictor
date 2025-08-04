@@ -5,13 +5,17 @@ type Base struct {
 }
 
 type PriorityStruct struct {
-	HighPriorityLen int //高优先级的长度必须设置
-	LowPriorityLen  int //若不设置该优先级则不会生成管道
+	HighPriorityLen   int //高优先级的长度必须设置
+	MediumPriorityLen int //若不设置该优先级则不会生成管道
+	LowPriorityLen    int //若不设置该优先级则不会生成管道
 }
 
 func (b *Base) getRequestChannel(len PriorityStruct) map[Priority]chan *QueueData {
 	ma := make(map[Priority]chan *QueueData)
 	ma[HighPriority] = make(chan *QueueData, len.HighPriorityLen)
+	if len.MediumPriorityLen != 0 {
+		ma[MediumPriority] = make(chan *QueueData, len.MediumPriorityLen)
+	}
 	if len.LowPriorityLen != 0 {
 		ma[LowPriority] = make(chan *QueueData, len.LowPriorityLen)
 	}

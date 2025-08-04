@@ -15,6 +15,7 @@ type Priority int
 
 const (
 	LowPriority Priority = iota
+	MediumPriority
 	HighPriority
 )
 
@@ -30,12 +31,10 @@ type Restrictor struct {
 }
 
 func NewRestrictor(qps int, chs map[Priority]chan *QueueData) *Restrictor {
-	millisecond := 1000 / qps
-	microsecond := int((float32(1000)/float32(qps) - float32(millisecond)) * 1000)
 	return &Restrictor{
 		qps:              qps,
 		Chs:              chs,
-		onceTime:         time.Duration(int64(millisecond))*time.Millisecond + time.Duration(int64(microsecond))*time.Microsecond,
+		onceTime:         time.Second / time.Duration(qps),
 		errCh:            make(chan *QueueData, 9999),
 		maxErrQueenLen:   9000,
 		maxRetryTimes:    5,
@@ -62,28 +61,44 @@ func (r *Restrictor) SetNoticeRetryTimes(num int) *Restrictor {
 func (r *Restrictor) SetQps(qps int) {
 	r.qps = qps
 }
-func (r *Restrictor) runQueenRequest() {
-	for {
-		select {
-		case chData := <-r.Chs[HighPriority]:
-			go r.doCallBack(chData)
-		case chData := <-r.Chs[LowPriority]:
-		loop:
-			for {
-				select {
-				case chDataInner := <-r.Chs[HighPriority]:
-					go r.doCallBack(chDataInner)
-				default:
-					break loop
-				}
-				time.Sleep(r.onceTime)
-			}
-			go r.doCallBack(chData)
-		case chData := <-r.errCh:
-			go r.doCallBack(chData)
-		}
 
-		time.Sleep(r.onceTime)
+func (r *Restrictor) nextData() *QueueData {
+	chsKeys := []Priority{HighPriority, MediumPriority, LowPriority}
+	for _, chsKey := range chsKeys {
+		select {
+		case chData := <-r.Chs[chsKey]:
+			return chData
+		default:
+		}
+	}
+	select {
+	case chData := <-r.Chs[HighPriority]:
+		return chData
+	case chData := <-r.Chs[MediumPriority]:
+		return chData
+	case chData := <-r.Chs[LowPriority]:
+		return chData
+	case chData := <-r.errCh:
+		return chData
+	}
+}
+
+func (r *Restrictor) runQueenRequest() {
+	ticker := time.NewTicker(r.onceTime)
+	sem := make(chan struct{}, r.qps)
+	go func() {
+		for range ticker.C {
+			select {
+			case sem <- struct{}{}:
+			default:
+			}
+		}
+	}()
+
+	for {
+		chData := r.nextData()
+		<-sem
+		go r.doCallBack(chData)
 	}
 }
 

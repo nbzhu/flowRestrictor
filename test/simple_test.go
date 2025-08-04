@@ -8,17 +8,40 @@ import (
 )
 
 func TestOne(t *testing.T) {
-	c := restrictor.NewClient(30, restrictor.PriorityStruct{HighPriorityLen: 1000, LowPriorityLen: 10000})
-
-	for i := 0; i < 100; i++ {
+	c := restrictor.NewClient(100, restrictor.PriorityStruct{HighPriorityLen: 1000, MediumPriorityLen: 1000, LowPriorityLen: 10000})
+	c.SetName("测试队列")
+	fmt.Printf("开始测试\n")
+	for i := 0; i < 10; i++ {
 		a := i
-		restrictor.ToDo(c, restrictor.HighPriority, restrictor.QueueData{
+		restrictor.ToDo(c, restrictor.LowPriority, restrictor.QueueData{
 			Func: func() error {
-				fmt.Println(a)
+				fmt.Printf("LowPriority-%d\n", a)
 				return nil
 			},
 			Title: "测试",
 		})
 	}
-	time.Sleep(time.Second * 10)
+	for i := 0; i < 10; i++ {
+		a := i
+		restrictor.ToDo(c, restrictor.HighPriority, restrictor.QueueData{
+			Func: func() error {
+				fmt.Printf("HighPriority-%d\n", a)
+				return nil
+			},
+			Title: "测试",
+		})
+	}
+	for i := 0; i < 10; i++ {
+		a := i
+		restrictor.ToDo(c, restrictor.MediumPriority, restrictor.QueueData{
+			Func: func() error {
+				fmt.Printf("MediumPriority-%d\n", a)
+				return nil
+			},
+			Title: "测试",
+		})
+	}
+
+	time.Sleep(time.Second * 3)
+	fmt.Printf("over")
 }
