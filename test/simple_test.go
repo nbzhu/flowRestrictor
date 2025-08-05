@@ -13,7 +13,7 @@ func TestOne(t *testing.T) {
 	fmt.Printf("开始测试\n")
 	for i := 0; i < 10; i++ {
 		a := i
-		restrictor.ToDo(c, restrictor.LowPriority, restrictor.QueueData{
+		go restrictor.ToDo(c, restrictor.LowPriority, restrictor.QueueData{
 			Func: func() error {
 				fmt.Printf("LowPriority-%d\n", a)
 				return nil
@@ -23,7 +23,7 @@ func TestOne(t *testing.T) {
 	}
 	for i := 0; i < 10; i++ {
 		a := i
-		restrictor.ToDo(c, restrictor.HighPriority, restrictor.QueueData{
+		go restrictor.ToDo(c, restrictor.HighPriority, restrictor.QueueData{
 			Func: func() error {
 				fmt.Printf("HighPriority-%d\n", a)
 				return nil
@@ -33,7 +33,7 @@ func TestOne(t *testing.T) {
 	}
 	for i := 0; i < 10; i++ {
 		a := i
-		restrictor.ToDo(c, restrictor.MediumPriority, restrictor.QueueData{
+		go restrictor.ToDo(c, restrictor.MediumPriority, restrictor.QueueData{
 			Func: func() error {
 				fmt.Printf("MediumPriority-%d\n", a)
 				return nil
