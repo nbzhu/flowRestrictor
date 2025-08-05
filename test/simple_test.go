@@ -1,7 +1,7 @@
 package test
 
 import (
-	restrictor "FlowRestrictor/pkg/flowRestrictor"
+	restrictor "flowRestrictor/pkg/flowRestrictor"
 	"fmt"
 	"testing"
 	"time"
