@@ -1,19 +1,20 @@
 package test
 
 import (
-	restrictor "flowRestrictor/pkg/flowRestrictor"
 	"fmt"
+	"github.com/nbzhu/flowRestrictor/frClient"
+	"github.com/nbzhu/flowRestrictor/frPkg"
 	"testing"
 	"time"
 )
 
 func TestOne(t *testing.T) {
-	c := restrictor.NewClient(100, restrictor.PriorityStruct{HighPriorityLen: 1000, MediumPriorityLen: 1000, LowPriorityLen: 10000})
+	c := frClient.New(100, frPkg.PriorityStruct{HighPriorityLen: 1000, MediumPriorityLen: 1000, LowPriorityLen: 10000})
 	c.SetName("测试队列")
 	fmt.Printf("开始测试\n")
 	for i := 0; i < 10; i++ {
 		a := i
-		go restrictor.ToDo(c, restrictor.LowPriority, restrictor.QueueData{
+		go frClient.ToDo(c, frPkg.LowPriority, frPkg.QueueData{
 			Func: func() error {
 				fmt.Printf("LowPriority-%d\n", a)
 				return nil
@@ -23,7 +24,7 @@ func TestOne(t *testing.T) {
 	}
 	for i := 0; i < 10; i++ {
 		a := i
-		go restrictor.ToDo(c, restrictor.HighPriority, restrictor.QueueData{
+		go frClient.ToDo(c, frPkg.HighPriority, frPkg.QueueData{
 			Func: func() error {
 				fmt.Printf("HighPriority-%d\n", a)
 				return nil
@@ -33,7 +34,7 @@ func TestOne(t *testing.T) {
 	}
 	for i := 0; i < 10; i++ {
 		a := i
-		go restrictor.ToDo(c, restrictor.MediumPriority, restrictor.QueueData{
+		go frClient.ToDo(c, frPkg.MediumPriority, frPkg.QueueData{
 			Func: func() error {
 				fmt.Printf("MediumPriority-%d\n", a)
 				return nil

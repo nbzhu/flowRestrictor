@@ -1,4 +1,4 @@
-package restrictor
+package frPkg
 
 type Base struct {
 	qps int
