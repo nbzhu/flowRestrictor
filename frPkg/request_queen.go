@@ -128,5 +128,7 @@ func (r *Restrictor) doCallBack(chData *QueueData) {
 			r.errCh <- chData
 		}()
 		return
+	} else {
+		chData.FinalFunc()
 	}
 }
