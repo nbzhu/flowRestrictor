@@ -7,7 +7,7 @@ import (
 
 type QueueData struct {
 	Func      func() error
-	FinalFunc func()
+	FinalFunc func(err error)
 	Title     string
 	errNum    int
 }
@@ -110,14 +110,14 @@ func (r *Restrictor) doCallBack(chData *QueueData) {
 			if len(r.errCh) >= r.maxErrQueenLen {
 				fmt.Println(fmt.Sprintf("[限流器]%s错误队列长度大于%d,%s", r.name, r.maxErrQueenLen, err.Error()))
 				if chData.FinalFunc != nil {
-					chData.FinalFunc()
+					chData.FinalFunc(err)
 				}
 				return
 			}
 			if chData.errNum >= r.maxRetryTimes {
 				fmt.Println(fmt.Sprintf("[限流器]%s失败次数%d,不再重试,%s", r.name, chData.errNum, err.Error()))
 				if chData.FinalFunc != nil {
-					chData.FinalFunc()
+					chData.FinalFunc(err)
 				}
 				return
 			}
@@ -134,7 +134,7 @@ func (r *Restrictor) doCallBack(chData *QueueData) {
 		return
 	} else {
 		if chData.FinalFunc != nil {
-			chData.FinalFunc()
+			chData.FinalFunc(err)
 		}
 	}
 }
