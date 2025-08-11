@@ -109,12 +109,16 @@ func (r *Restrictor) doCallBack(chData *QueueData) {
 		go func() {
 			if len(r.errCh) >= r.maxErrQueenLen {
 				fmt.Println(fmt.Sprintf("[限流器]%s错误队列长度大于%d,%s", r.name, r.maxErrQueenLen, err.Error()))
-				chData.FinalFunc()
+				if chData.FinalFunc != nil {
+					chData.FinalFunc()
+				}
 				return
 			}
 			if chData.errNum >= r.maxRetryTimes {
 				fmt.Println(fmt.Sprintf("[限流器]%s失败次数%d,不再重试,%s", r.name, chData.errNum, err.Error()))
-				chData.FinalFunc()
+				if chData.FinalFunc != nil {
+					chData.FinalFunc()
+				}
 				return
 			}
 			if chData.errNum >= r.noticeRetryTimes {
@@ -129,6 +133,8 @@ func (r *Restrictor) doCallBack(chData *QueueData) {
 		}()
 		return
 	} else {
-		chData.FinalFunc()
+		if chData.FinalFunc != nil {
+			chData.FinalFunc()
+		}
 	}
 }
