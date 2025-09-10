@@ -1,6 +1,7 @@
 package test
 
 import (
+	"errors"
 	"fmt"
 	"github.com/nbzhu/flowRestrictor/frClient"
 	"github.com/nbzhu/flowRestrictor/frPkg"
@@ -9,7 +10,14 @@ import (
 )
 
 func TestOne(t *testing.T) {
-	c := frClient.New(100, frPkg.PriorityStruct{HighPriorityLen: 1000, MediumPriorityLen: 1000, LowPriorityLen: 10000})
+	c := frClient.New(3,
+		frPkg.PriorityStruct{
+			HighPriorityLen:   1000,
+			MediumPriorityLen: 1000,
+			LowPriorityLen:    10000}).
+		SetMaxRetryTimes(1).
+		SetNoticeRetryTimes(0).
+		SetRestrictorType(frPkg.RestrictorTypeTokenBucket)
 	c.SetName("测试队列")
 	fmt.Printf("开始测试\n")
 	for i := 0; i < 10; i++ {
@@ -17,7 +25,7 @@ func TestOne(t *testing.T) {
 		go frClient.ToDo(c, frPkg.LowPriority, frPkg.QueueData{
 			Func: func() error {
 				fmt.Printf("LowPriority-%d\n", a)
-				return nil
+				return errors.New("调试调试")
 			},
 			Title: "测试",
 		})
@@ -43,6 +51,6 @@ func TestOne(t *testing.T) {
 		})
 	}
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 30)
 	fmt.Printf("over")
 }

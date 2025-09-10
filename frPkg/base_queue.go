@@ -26,7 +26,7 @@ func (b *Base) SetQps(qps int) {
 	b.qps = qps
 }
 func (b *Base) runQueen(r *Restrictor) {
-	r.SetQps(b.qps)
+	r.setQps(b.qps)
 	go r.runQueenRequest()
 }
 

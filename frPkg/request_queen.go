@@ -20,6 +20,13 @@ const (
 	HighPriority
 )
 
+type RestrictorType uint8
+
+const (
+	RestrictorTypeTokenBucket   RestrictorType = iota //令牌桶
+	RestrictorTypeSlidingWindow                       //滑动窗口
+)
+
 type Restrictor struct {
 	name             string
 	qps              int
@@ -29,6 +36,8 @@ type Restrictor struct {
 	maxErrQueenLen   int
 	maxRetryTimes    int
 	noticeRetryTimes int
+	restrictorType   RestrictorType
+	reqTimestamps    []int64
 }
 
 func NewRestrictor(qps int, chs map[Priority]chan *QueueData) *Restrictor {
@@ -40,7 +49,13 @@ func NewRestrictor(qps int, chs map[Priority]chan *QueueData) *Restrictor {
 		maxErrQueenLen:   9000,
 		maxRetryTimes:    5,
 		noticeRetryTimes: 2,
+		reqTimestamps:    make([]int64, 0, qps+10),
 	}
+}
+
+func (r *Restrictor) SetRestrictorType(t RestrictorType) *Restrictor {
+	r.restrictorType = t
+	return r
 }
 
 func (r *Restrictor) SetName(name string) {
@@ -59,7 +74,7 @@ func (r *Restrictor) SetNoticeRetryTimes(num int) *Restrictor {
 	return r
 }
 
-func (r *Restrictor) SetQps(qps int) {
+func (r *Restrictor) setQps(qps int) {
 	r.qps = qps
 }
 
@@ -85,6 +100,17 @@ func (r *Restrictor) nextData() *QueueData {
 }
 
 func (r *Restrictor) runQueenRequest() {
+	switch r.restrictorType {
+	case RestrictorTypeSlidingWindow:
+		r.runSlidingWindowQueenRequest()
+	case RestrictorTypeTokenBucket:
+		r.runTokenBucketQueenRequest()
+	default:
+		r.runTokenBucketQueenRequest()
+	}
+}
+
+func (r *Restrictor) runTokenBucketQueenRequest() {
 	ticker := time.NewTicker(r.onceTime)
 	sem := make(chan struct{}, r.qps)
 	go func() {
@@ -100,6 +126,39 @@ func (r *Restrictor) runQueenRequest() {
 		chData := r.nextData()
 		<-sem
 		go r.doCallBack(chData)
+	}
+}
+
+func (r *Restrictor) slidingWindowAllow() bool {
+	now := time.Now().UnixMilli()
+	cutoff := now - 1000
+
+	i := 0
+	for i < len(r.reqTimestamps) && r.reqTimestamps[i] <= cutoff {
+		i++
+	}
+	if i > 0 {
+		r.reqTimestamps = r.reqTimestamps[i:]
+	}
+
+	if len(r.reqTimestamps) < r.qps {
+		r.reqTimestamps = append(r.reqTimestamps, now)
+		return true
+	}
+	return false
+}
+
+func (r *Restrictor) runSlidingWindowQueenRequest() {
+	for {
+		chData := r.nextData()
+		for {
+			if r.slidingWindowAllow() {
+				go r.doCallBack(chData)
+				break
+			}
+			// 等待短时间再试（可根据需要调整）
+			time.Sleep(5 * time.Millisecond)
+		}
 	}
 }
 
