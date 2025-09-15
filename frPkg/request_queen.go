@@ -1,11 +1,13 @@
 package frPkg
 
 import (
-	"fmt"
+	"context"
+	"log"
 	"time"
 )
 
 type QueueData struct {
+	Ctx       context.Context
 	Func      func() error
 	FinalFunc func(err error)
 	Title     string
@@ -38,6 +40,7 @@ type Restrictor struct {
 	noticeRetryTimes int
 	restrictorType   RestrictorType
 	reqTimestamps    []int64
+	printCtxErr      bool
 }
 
 func NewRestrictor(qps int, chs map[Priority]chan *QueueData) *Restrictor {
@@ -71,6 +74,10 @@ func (r *Restrictor) SetMaxRetryTimes(num int) *Restrictor {
 }
 func (r *Restrictor) SetNoticeRetryTimes(num int) *Restrictor {
 	r.noticeRetryTimes = num
+	return r
+}
+func (r *Restrictor) SetPrintCtxErr() *Restrictor {
+	r.printCtxErr = true
 	return r
 }
 
@@ -124,9 +131,26 @@ func (r *Restrictor) runTokenBucketQueenRequest() {
 
 	for {
 		chData := r.nextData()
+		if r.skipByCtxDone(chData) {
+			continue
+		}
 		<-sem
 		go r.doCallBack(chData)
 	}
+}
+
+func (r *Restrictor) skipByCtxDone(chData *QueueData) bool {
+	ctx := chData.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		if r.printCtxErr {
+			log.Printf("%s skip chData: ctx done: %v", chData.Title, err)
+		}
+		return true
+	}
+	return false
 }
 
 func (r *Restrictor) slidingWindowAllow() bool {
@@ -151,6 +175,9 @@ func (r *Restrictor) slidingWindowAllow() bool {
 func (r *Restrictor) runSlidingWindowQueenRequest() {
 	for {
 		chData := r.nextData()
+		if r.skipByCtxDone(chData) {
+			continue
+		}
 		for {
 			if r.slidingWindowAllow() {
 				go r.doCallBack(chData)
@@ -167,21 +194,21 @@ func (r *Restrictor) doCallBack(chData *QueueData) {
 	if err != nil {
 		go func() {
 			if len(r.errCh) >= r.maxErrQueenLen {
-				fmt.Println(fmt.Sprintf("[限流器]%s错误队列长度大于%d,%s", r.name, r.maxErrQueenLen, err.Error()))
+				log.Printf("[限流器]%s错误队列长度大于%d,%s", r.name, r.maxErrQueenLen, err.Error())
 				if chData.FinalFunc != nil {
 					chData.FinalFunc(err)
 				}
 				return
 			}
 			if chData.errNum >= r.maxRetryTimes {
-				fmt.Println(fmt.Sprintf("[限流器]%s失败次数%d,不再重试,%s", r.name, chData.errNum, err.Error()))
+				log.Printf("[限流器]%s失败次数%d,不再重试,%s", r.name, chData.errNum, err.Error())
 				if chData.FinalFunc != nil {
 					chData.FinalFunc(err)
 				}
 				return
 			}
 			if chData.errNum >= r.noticeRetryTimes {
-				fmt.Println(fmt.Sprintf("[限流器]%s失败次数%d,%s", r.name, chData.errNum, err.Error()))
+				log.Printf("[限流器]%s失败次数%d,%s", r.name, chData.errNum, err.Error())
 			}
 			if chData.errNum >= 3 {
 				time.Sleep(time.Second * 8)
