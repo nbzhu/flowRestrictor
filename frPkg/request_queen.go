@@ -148,6 +148,7 @@ func (r *Restrictor) skipByCtxDone(chData *QueueData) bool {
 		if r.printCtxErr {
 			log.Printf("%s skip chData: ctx done: %v", chData.Title, err)
 		}
+		go chData.FinalFunc(ctx.Err())
 		return true
 	}
 	return false
@@ -192,32 +193,29 @@ func (r *Restrictor) runSlidingWindowQueenRequest() {
 func (r *Restrictor) doCallBack(chData *QueueData) {
 	err := chData.Func()
 	if err != nil {
-		go func() {
-			if len(r.errCh) >= r.maxErrQueenLen {
-				log.Printf("[限流器]%s错误队列长度大于%d,%s", r.name, r.maxErrQueenLen, err.Error())
-				if chData.FinalFunc != nil {
-					chData.FinalFunc(err)
-				}
-				return
+		if len(r.errCh) >= r.maxErrQueenLen {
+			log.Printf("[限流器]%s错误队列长度大于%d,%s", r.name, r.maxErrQueenLen, err.Error())
+			if chData.FinalFunc != nil {
+				chData.FinalFunc(err)
 			}
-			if chData.errNum >= r.maxRetryTimes {
-				log.Printf("[限流器]%s失败次数%d,不再重试,%s", r.name, chData.errNum, err.Error())
-				if chData.FinalFunc != nil {
-					chData.FinalFunc(err)
-				}
-				return
+			return
+		}
+		if chData.errNum >= r.maxRetryTimes {
+			log.Printf("[限流器]%s失败次数%d,不再重试,%s", r.name, chData.errNum, err.Error())
+			if chData.FinalFunc != nil {
+				chData.FinalFunc(err)
 			}
-			if chData.errNum >= r.noticeRetryTimes {
-				log.Printf("[限流器]%s失败次数%d,%s", r.name, chData.errNum, err.Error())
-			}
-			if chData.errNum >= 3 {
-				time.Sleep(time.Second * 8)
-			}
-			time.Sleep(time.Second * 9)
-			chData.errNum++
-			r.errCh <- chData
-		}()
-		return
+			return
+		}
+		if chData.errNum >= r.noticeRetryTimes {
+			log.Printf("[限流器]%s失败次数%d,%s", r.name, chData.errNum, err.Error())
+		}
+		if chData.errNum >= 3 {
+			time.Sleep(time.Second * 8)
+		}
+		time.Sleep(time.Second * 9)
+		chData.errNum++
+		r.errCh <- chData
 	} else {
 		if chData.FinalFunc != nil {
 			chData.FinalFunc(err)
