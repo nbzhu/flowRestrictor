@@ -148,7 +148,9 @@ func (r *Restrictor) skipByCtxDone(chData *QueueData) bool {
 		if r.printCtxErr {
 			log.Printf("%s skip chData: ctx done: %v", chData.Title, err)
 		}
-		go chData.FinalFunc(ctx.Err())
+		if chData.FinalFunc != nil {
+			go chData.FinalFunc(ctx.Err())
+		}
 		return true
 	}
 	return false
